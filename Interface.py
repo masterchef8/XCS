@@ -113,7 +113,7 @@ class Maze(object):
             self.food -= 1
             self.water -= 1
             if self.food == 0 or self.water == 0:
-                self.stop()
+                self.flag = True
                 return self.letalR
 
         self.perception = self.returnPerception(self.posx, self.posy) + [self.food] + [self.water]

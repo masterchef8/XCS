@@ -377,7 +377,7 @@ if __name__ == '__main__':
         if time == 10000:
             bool = False
 
-        if time % 1 == 0:
+        if time % 100 == 0:
             perfClasseur.append(len(Pop))
             m = 0
             for cl in Pop:
