@@ -1,18 +1,13 @@
+# coding=utf-8
+
 import copy
 import random as rd
 from Classifier import Classifier
 import Interface
 import Cons
 import matplotlib.pyplot as plt
-
-
-
-def run_exp(pop):
-    """
-
-    :param pop:
-    :return:
-    """
+import time as tt
+import curses
 
 
 def does_match(cl, perception):
@@ -79,7 +74,7 @@ def gen_match_set(Pop: list, perception: list):
     """
     m = []
 
-    action = [False]*4
+    action = [False] * 4
     while True:
         m = []
         for cl in Pop:
@@ -118,7 +113,7 @@ def gen_prediction_array(M):
     return pa
 
 
-def select_action(pa):
+def select_action(pa, t):
     best_action = 0.0
     if rd.random() < cons.pExplor:
         best_action = rd.choice(pa)
@@ -160,8 +155,8 @@ def select_offspring(A):
 
 
 def apply_crossover(cl1, cl2):
-    #assert (cl1 is type(Classifier)), "Wrong argument for apply_crossover"
-    #assert (cl2 is type(Classifier)), "Wrong argument for apply_crossover"
+    # assert (cl1 is type(Classifier)), "Wrong argument for apply_crossover"
+    # assert (cl2 is type(Classifier)), "Wrong argument for apply_crossover"
     """
     :type cl1: Classifier
     :param cl1:
@@ -187,7 +182,8 @@ def apply_crossover(cl1, cl2):
         if i < y:
             break
 
-def apply_mutation(cl, perception):
+
+def apply_mutation(cl: Classifier, perception: list):
     """
     :type cl: Classifier
     :param cl:
@@ -202,27 +198,33 @@ def apply_mutation(cl, perception):
             else:
                 cl.condition[i] = cons.dontCare
     if rd.random() < cons.nu:
-        c = rd.choice([i for i in range(0,(cons.nbAction-1))])
+        c = rd.choice([i for i in range(0, (cons.nbAction - 1))])
         cl.action = c
 
-def insert_in_population(cl, Pop):
+
+def insert_in_population(cl: Classifier, Pop: list):
     for c in Pop:
         if c.equals(c):
             c.numerosity += 1
             return
-    P.append(cl)
+    Pop.append(cl)
 
-def run_ga(A, Pop, env):
+
+def run_ga(a, pop, percep):
+    """
+
+    :type pop: list
+    """
     sumNum = 0
     sumTSN = 0
-    for cl in A:
-        sumTSN += cl.timeStamp * cl.numerosity
-        sumNum += cl.numerosity
+    for clo in a:
+        sumTSN += clo.timeStamp * clo.numerosity
+        sumNum += clo.numerosity
     if (time - sumTSN) / sumNum > cons.theta_GA:
-        for cl in A:
-            cl.timeStamp = time
-        parent1 = select_offspring(A)
-        parent2 = select_offspring(A)
+        for clo in a:
+            clo.timeStamp = time
+        parent1 = select_offspring(a)
+        parent2 = select_offspring(a)
 
         child1 = copy.copy(parent1)
         child2 = copy.copy(parent2)
@@ -230,11 +232,11 @@ def run_ga(A, Pop, env):
         child1.numerosity += 1
         child2.numerosity += 1
 
-        child1.experience += 0
-        child2.experience += 0
+        child1.experience = 0
+        child2.experience = 0
 
         if rd.random() < cons.pX:
-            apply_crossover(child1,child2)
+            apply_crossover(child1, child2)
             child1.prediction = (parent1.prediction + parent2.prediction) / 2
             child1.predictionError = (parent1.predictionError + parent2.predictionError) / 2
 
@@ -247,27 +249,27 @@ def run_ga(A, Pop, env):
             child1.fitness *= 0.1
             child2.fitness *= 0.1
 
-            apply_mutation(child1, env)
-            apply_mutation(child2, env)
+            apply_mutation(child1, percep)
+            apply_mutation(child2, percep)
             if cons.doGASubsumption:
                 if child1.subsumes(parent1):
                     parent1.numerosity += 1
                 elif child1.subsumes(parent2):
                     parent2.numerosity += 1
                 else:
-                    insert_in_population(child1, Pop)
+                    insert_in_population(child1, pop)
             else:
-                insert_in_population(child1, Pop)
+                insert_in_population(child1, pop)
             if cons.doGASubsumption:
                 if child2.subsumes(parent1):
                     parent1.numerosity += 1
                 elif child2.subsumes(parent2):
                     parent2.numerosity += 1
                 else:
-                    insert_in_population(child2, Pop)
+                    insert_in_population(child2, pop)
             else:
-                insert_in_population(child2, Pop)
-            delete_from_population(Pop)
+                insert_in_population(child2, pop)
+            delete_from_population(pop)
 
 
 def update_fitness(A):
@@ -279,9 +281,9 @@ def update_fitness(A):
             k[i] = 1
         else:
             k[i] = cons.alpha * ((A[i].predictionError / cons.epsilon_0) ** (-cons.nu))
-        accurancySum = accurancySum + k[i] * A[i].numerosity
+        accurancySum += k[i] * A[i].numerosity
     for i in range(len(A)):
-        A[i].fitness = A[i].fitness + cons.beta * (k[i] * A[i].numerosity / accurancySum - A[i].fitness)
+        A[i].fitness += cons.beta * (k[i] * A[i].numerosity / accurancySum - A[i].fitness)
 
 
 def do_action_set_subsumption(A, Pop):
@@ -330,77 +332,111 @@ def update_set(A, p, Pop):
 
 
 if __name__ == '__main__':
-    print("Hello")
-    perf = []
-    perfFitness = []
-    perfClasseur = []
-    rwd = 0
-    M = []
-    Pop = []
-    PA = []
-    act = None
-    env = Interface.Maze()
-    perception_ = None
-    A_ = None
-    p = None
-    p_ = None
-    cons = Cons.Cons()
-    time = 0
-    bool = True
-    while bool:
-        perception = env.perception
-        M = gen_match_set(Pop, perception)
-        PA = gen_prediction_array(M)
-        act = select_action(PA)
-        A = gen_action_set(M, act)
-        p = env.execute_action(act)
+    # stdscr = curses.initscr()
+    # curses.noecho()
+    # curses.cbreak()
+    # print("Hello")
 
-        if A_ is not None:
-            # noinspection PyUnresolvedReferences
-            P = p_ + cons.gamma * max(PA)
-            update_set(A_, P, Pop)
-            run_ga(A_, Pop, perception_)
+    for i in range(1):
+        perf = []
+        perfFitness = []
+        perfClasseur = []
+        rwd = 0
+        M = []
+        Pop = []
+        PA = []
+        act = None
+        env = Interface.Maze()
+        perception_ = None
+        A_ = None
+        p = None
+        p_ = None
+        cons = Cons.Cons()
+        time = 0
+        bool = True
+        meanA = 0
+        path = []
+        tmp = 0
+        d = []
+        while bool:
+            perception = env.perception
+            M = gen_match_set(Pop, perception)
+            PA = gen_prediction_array(M)
+            act = select_action(PA, time)
+            A = gen_action_set(M, act)
+            p = env.execute_action(act)
 
-        if env.eop():
-            P = p
-            update_set(A, P, Pop)
-            run_ga(A, Pop, perception)
-            A_ = None
-            env.stop()
-        else:
-            A_ = A
-            p_ = p
-            perception_ = perception
+            if A_ is not None:
+                # noinspection PyUnresolvedReferences
+                P = p_ + cons.gamma * max(PA)
+                update_set(A_, P, Pop)
+                run_ga(A_, Pop, perception_)
 
-        time += 1
-        print(time)
-        if time == 10000:
-            bool = False
+            if env.flag:
+                P = p
+                update_set(A, P, Pop)
+                run_ga(A, Pop, perception)
+                A_ = None
+                if p < 0:
+                    env.stop()
+            else:
+                A_ = A
+                p_ = p
+                perception_ = perception
+            env.flag = False
 
-        if time % 100 == 0:
-            perfClasseur.append(len(Pop))
-            m = 0
-            for cl in Pop:
-                m += cl.getAccuracy()
-            m /= len(Pop)
-            perfFitness.append(m)
 
-        if bool is False:
-            break
+            path.append([env.__getattr__(env.posx), env.__getattr__(env.posy), p, env.__getattr__(env.food)])
+            time += 1
 
-    for cl in Pop:
-        print(cl.condition, '', cl.action, '', cl.prediction, ',', cl.predictionError, cl.fitness)
-    print(len(perf))
-    print(len(Pop))
-    print(perfClasseur)
-    print(perfFitness)
+            if time > 10000:
+                bool = False
 
-    plt.plot(perfClasseur)
-    plt.ylabel('Numbers of Classifier')
-    plt.xlabel('Time')
-    plt.show()
+            if time % 1 == 0:
+                perfClasseur.append(len(Pop))
+                m = 0
+                for cl in Pop:
+                    m += cl.getAccuracy()
+                m /= len(Pop)
+                meanA = m
+                perfFitness.append(m)
 
-    plt.plot(perfFitness)
-    plt.ylabel('Quality q')
-    plt.xlabel('Time')
-    plt.show()
+            if p < 0:
+                d.append(time - tmp)
+                tmp = time
+
+
+            if bool is False:
+                break
+
+        for cl in Pop:
+            print(cl.condition, '', cl.action, '', cl.prediction, ',', cl.predictionError, cl.fitness)
+        print(len(perf))
+        print(len(Pop))
+        print(perfClasseur)
+        print(perfFitness)
+        print(d)
+
+        # replay = Interface.PlayMaze()
+
+        # for i in range(time):
+        #     string = "temps : ", i, "  food :", path[i][3],  " perf :", "%.2f" % perfFitness[i], "        "
+        #     string1 = "  rwd : ", path[i][2], '    '
+        #     string1 = str(string1).replace(",", " ").replace("(", " ").replace(")", " ").replace("'", " ")
+        #     string = str(string).replace(",", " ").replace("(", " ").replace(")", " ").replace("'", " ")
+        #     if i > 7000:
+        #         tt.sleep(0.01)
+        #     replay.play(path[i][0], path[i][1], string, string1)
+
+
+        plt.plot(d)
+        plt.ylabel('Numbers of Classifier')
+        plt.xlabel('Time')
+        plt.show()
+
+        plt.plot(perfFitness)
+        plt.ylabel('Quality q')
+        plt.xlabel('Time')
+        plt.show()
+    #curses.endwin()
+exit(0)
